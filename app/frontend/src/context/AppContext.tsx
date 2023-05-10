@@ -3,8 +3,9 @@
 
 import React, { useContext, createContext, useState, MouseEventHandler, useEffect } from "react";
 import { AuthCodeMSALBrowserAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/authCodeMsalBrowser";
+import { Client } from "@microsoft/microsoft-graph-client"
 import { InteractionType, PublicClientApplication } from "@azure/msal-browser";
-import { useMsal } from "@azure/msal-react";
+import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
 import { getUser, getProfilePhoto } from "../GraphService";
 
@@ -29,6 +30,7 @@ type AppContext = {
     clearError?: Function;
     authProvider?: AuthCodeMSALBrowserAuthenticationProvider;
     isAuthenticated?: boolean;
+    userInfo:
 };
 
 const appContext = createContext<AppContext>({
@@ -38,7 +40,9 @@ const appContext = createContext<AppContext>({
     signOut: undefined,
     displayError: undefined,
     clearError: undefined,
-    authProvider: undefined
+    authProvider: undefined,
+    isAuthenticated: undefined,
+    userInfo: undefined
 });
 
 export function useAppContext(): AppContext {
@@ -57,10 +61,13 @@ export default function ProvideAppContext({ children }: ProvideAppContextProps) 
 
 function useProvideAppContext() {
     const msal = useMsal();
+    const testIsAuthenticated = useIsAuthenticated();
     const [user, setUser] = useState<AppUser | undefined>(undefined);
     const [error, setError] = useState<AppError | undefined>(undefined);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+    const [userInfo, setUserInfo] = useState();
+    
     const displayError = (message: string, debug?: string) => {
         setError({ message, debug });
     };
@@ -78,8 +85,38 @@ function useProvideAppContext() {
     });
     // </AuthProviderSnippet>
 
+    const getAuthenticatedClient = (accessToken:string) => {
+        const client = Client.init({
+            authProvider: (done) => {
+                done(null, accessToken);
+            }
+        });
+
+        return client;
+    }
+
+    async function getUserInfo() {
+        try {
+            const response = await fetch('/.auth/me');
+            const payload = await response.json();
+            const { clientPrincipal} = payload;
+            console.log(clientPrincipal);
+            return clientPrincipal;}
+        catch (error) {
+            console.log("no payload found");
+            return undefined;
+        }
+    }
+
     // <UseEffectSnippet>
     useEffect(() => {
+        (async () => {
+            setUserInfo(await getUserInfo());
+          })();
+        }, []);
+      
+        // console.log("Is Authenticated by @azure/msal-react?", testIsAuthenticated);
+        const response = fetch('/.auth/me')
         const checkUser = async () => {
             if (!user) {
                 try {
@@ -134,6 +171,7 @@ function useProvideAppContext() {
         displayError,
         clearError,
         authProvider,
-        isAuthenticated
+        isAuthenticated,
+        userInfo
     };
 }
