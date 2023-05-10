@@ -39,6 +39,22 @@ msalInstance.addEventCallback((event: EventMessage) => {
     }
 });
 
+
+async function getUserInfo() {
+    try {
+        const response = await fetch('/.auth/me');
+        const payload = await response.json();
+        const { clientPrincipal} = payload;
+        console.log(clientPrincipal);
+        return clientPrincipal;}
+    catch (error) {
+        console.log("no payload found");
+        return undefined;
+    }
+}
+
+
+
 type AppProps = {
     pca: IPublicClientApplication;
 };
